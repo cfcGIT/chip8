@@ -55,13 +55,13 @@ target_link_libraries(chip8_core PRIVATE chip8_options)
 # --- Executable: core + SDL -----------------------------------------------------
 add_executable(chip8
     src/app/main.cpp
-    src/core/chip8.h)
+    src/app/sdl_frontend.cpp
+    src/app/sdl_frontend.h)
 target_link_libraries(chip8 PRIVATE
     chip8_core
     chip8_options
     ${CHIP8_SDL_TARGET}
 )
-# SDL2main only matters on Windows (it provides WinMain); some packages don't ship it.
-if(TARGET SDL2::SDL2main)
-    target_link_libraries(chip8 PRIVATE SDL2::SDL2main)
-endif()
+# No SDL2main: our main() stays the real entry point (a console app on Windows too), so
+# main.cpp doesn't need to include <SDL.h>. CSdlFrontend::init() calls SDL_SetMainReady().
+target_compile_definitions(chip8 PRIVATE SDL_MAIN_HANDLED)
