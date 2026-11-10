@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: the workflow only needs to read the repository.
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the run that is still in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Keep the other OS running when one fails, so both results are visible.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      # Third-party actions are pinned to a commit SHA: a tag can be moved, a SHA cannot.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Linux: system SDL2 (found by find_package), same as on Fedora.
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build libsdl2-dev
+
+      # Windows: no system SDL2, so CMake falls back to FetchContent and builds it statically.
+      # The Ninja generator needs the MSVC environment (cl.exe, link.exe, SDK paths) in PATH.
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: x64
+
+      # The Windows runner also has MinGW gcc/g++ in PATH; make sure CMake picks MSVC.
+      - name: Select MSVC compiler (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "CC=cl" >> "$GITHUB_ENV"
+          echo "CXX=cl" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: cmake --preset debug
+
+      - name: Build
+        run: cmake --build --preset debug
+
+      # TODO (milestone 2): run the Timendus test suite headless and check the result.
+      # Needs: scripts/fetch_roms.sh, plus a way to run N frames without a window and
+      # compare the framebuffer against a reference image.

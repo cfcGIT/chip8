@@ -1,0 +1,8 @@
+# Visual Studio (Open Folder) and CMake output
+.vs/
+out/
+build/
+CMakeUserPresets.json
+
+# Third-party test ROMs
+roms/
